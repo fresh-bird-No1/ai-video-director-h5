@@ -18,7 +18,7 @@
 
 - **全流程不断链**：选题、大纲、角色 / 场景 / 道具 / 站位资产、分集剧本、分镜、H3 视频提示词，在同一个项目里推进。
 - **47 个自研技能**：每个环节都有对应技能，可直接调用 LLM 生成，也可以手动修改。
-- **导演包直连 ComfyUI**：一键导出 `*.mmxpack.zip`，含每镜提示词、时长、参考图与音色，直接导入 `ComfyUI_MiniMaxH3_Director`。
+- **导演包直连 ComfyUI**：一键导出 `*.mmxpack.zip`，含每镜提示词、时长、参考图与音色，直接导入 [`ComfyUI_MiniMaxH3_Director`](https://github.com/AIMixer/ComfyUI_MiniMaxH3_Director)；使用转场能力需要 [带转场的适配版节点](https://github.com/fresh-bird-No1/ComfyUI_MiniMaxH3_Director)。
 - **零构建、本地优先**：原生 ES Modules，无 npm / 无打包；项目写在本地磁盘，浏览器清缓存也不丢。
 
 如果这个项目对你有用，欢迎点一个 Star。本仓库是唯一官方源码仓库；如果你看到的是 fork，请回到上游仓库获取最新版本。
@@ -87,24 +87,39 @@ python3 server.py --port 8787
 
 顶栏「导出导演包」把当前集打成 `E01.mmxpack.zip`，可直接用于 `ComfyUI_MiniMaxH3_Director` 节点的「导入导演包」。
 
+### 节点版本与转场
+
+导演包需要配合 ComfyUI 的 `ComfyUI_MiniMaxH3_Director` 节点使用，两个版本的分工如下：
+
+| 节点 | 地址 | 能力 |
+| --- | --- | --- |
+| 上游原版 | <https://github.com/AIMixer/ComfyUI_MiniMaxH3_Director> | 镜头组导入与视频生成 |
+| 本项目适配版 | <https://github.com/fresh-bird-No1/ComfyUI_MiniMaxH3_Director> | 在上游原版基础上增加转场能力 |
+
+- 不带转场的导演包，两个版本都能导入。
+- 带转场的导演包会多出 `pack.json` 的 `transitions` 字段和 `transitions/NN.json`，必须用**本项目适配版**节点导入；上游原版没有转场任务处理，导入后不会生成转场片段。
+- 转场片段是独立的 fl2v 任务：首帧取上一镜尾帧、尾帧取下一镜首帧，音轨固定静音。
+
 通过 `server.py` 打开时，包直接写到 `<工作目录>/packs/`，提示里会给出完整路径；服务不可用时退回浏览器下载。
 
 包内结构（与 `ComfyUI_MiniMaxH3_Director/director/pack.py` 对齐）：
 
 ```
-pack.json                          format / formatVersion / taskType / widgets / output
+pack.json                          format / formatVersion / taskType / widgets / output / sequence / transitions
 shared_params/shared_params.json   公共段，默认空
 asset_groups/NN/group.json         一镜一段：prompt、durationSec、frameCount、start、refs、refAudios
 asset_groups/NN/PictureN.<ext>     角色、场景、道具、服装参考图
 asset_groups/NN/AudioN.<ext>       角色音色
+transitions/NN.json                fl2v 转场任务：首帧取上一组尾帧、尾帧取下一组首帧（仅适配版节点读取）
 ```
 
+- `sequence` 给出最终拼接顺序：正常镜头组与转场交替排列。
 - 不写 `timeline.json`，导入端会用 `_assemble_timeline` 从各 `group.json` 重新组装。
 - 参考图顺序：角色 → 场景 → 道具 → 服装，记为 `Picture1..N`；音色记为 `Audio1..N`。服装是角色卡内的子资源，按一整套搭配出图且不露脸；分镜表的「本镜服装」列按 `角色名：服装名称` 指定这一镜穿哪套，导演包按该字段精确取图，没有该字段时按服装名是否出现在画面/对白/资产里兜底。
 - 有参考图的镜标 `r2v`，没有的标 `t2v`，`pack.json` 里是 `mixed`；默认 1280×720、24fps。
 - 导出前必须有分镜；只有剧本时不会自动拆镜。
 - 图片/音频支持 data URL（手动上传的）和 ComfyUI `/view` URL（导出时现抓字节）；抓不到就跳过该素材，并在 toast 里提示跳过的数量。
-- 转场在导演包里是独立的 fl2v 任务：首帧取上一镜尾帧、尾帧取下一镜首帧，时长在 1.6–3 秒之间按镜头内容选择，成片音轨固定为静音。
+- 转场在导演包里是独立的 fl2v 任务，时长在 1.6–3 秒之间按镜头内容选择，成片音轨固定为静音。这部分只有本项目适配版节点会读取。
 
 ## 接入 ComfyUI（生图 / 配音 / 抓图）
 
@@ -167,7 +182,7 @@ LICENSE           MIT License
 项目文件和上传的图片、音频保存在你自己选的工作目录里，不会上传到本项目的服务器。使用 Agent 生成时，当前阶段相关的项目内容会发送给你配置的 LLM 接口；API Key 只保存在浏览器本地和请求头里。
 
 **视频在哪里生成？**
-本项目负责到提示词和导演包；视频由 ComfyUI 侧的 `MiniMaxH3_Director` 节点生成。
+本项目负责到提示词和导演包；视频由 ComfyUI 侧的 `MiniMaxH3_Director` 节点生成。上游原版见 <https://github.com/AIMixer/ComfyUI_MiniMaxH3_Director>；需要转场就装本项目适配版 <https://github.com/fresh-bird-No1/ComfyUI_MiniMaxH3_Director>，详见[节点版本与转场](#节点版本与转场)。
 
 ## 参与贡献
 
@@ -185,6 +200,8 @@ ComfyUI、Electron 以及各家 LLM / 图像 / 音频服务不属于本仓库，
 ## English
 
 **AI Video Director Assistant H5** is a local-first, zero-build web app for short-drama production. It takes a topic through outline, character/scene/prop assets, script, shot list, MiniMax H3 prompts, and exports a ComfyUI-ready director pack. All project data stays on your machine.
+
+The exported pack targets [ComfyUI_MiniMaxH3_Director](https://github.com/AIMixer/ComfyUI_MiniMaxH3_Director). Adding transitions requires the [transition-enabled build](https://github.com/fresh-bird-No1/ComfyUI_MiniMaxH3_Director).
 
 ```bash
 python3 server.py --port 8787
