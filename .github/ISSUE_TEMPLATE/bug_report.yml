@@ -1,0 +1,45 @@
+name: Bug 报告
+description: 页面、导出导演包或 ComfyUI 接入出现问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请先确认：通过 `python3 server.py` 启动、浏览器控制台没有 CORS 或模块加载错误。
+        请勿粘贴 API Key、个人项目路径或含隐私的项目数据。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 问题描述
+      description: 发生了什么，和你的预期有什么不同？
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开「分镜」阶段
+        2. 点击某一镜的「生成提示词」
+        3. 页面出现……
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 使用环境
+      placeholder: "例如：Windows 11 / Chrome 130 / Python 3.12 / ComfyUI 版本"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 控制台或服务端日志
+      description: 请先移除 API Key、个人路径和项目内容。
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充说明
+      description: 截图、相关技能 ID 或其他能帮助定位的信息。

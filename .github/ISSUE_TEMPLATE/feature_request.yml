@@ -1,0 +1,40 @@
+name: 功能建议
+description: 新阶段、新技能或体验改进
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你遇到的具体问题
+      description: 现在的工作流里哪一步最费时间或最容易出错？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你希望怎么解决
+      description: 描述期望的操作方式、字段或输出，不必写实现方案。
+    validations:
+      required: true
+  - type: textarea
+    id: alternative
+    attributes:
+      label: 你试过的替代方案
+      description: 现在你是怎么绕过去的？
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块
+      options:
+        - 选题 / 大纲
+        - 资产（角色 / 场景 / 道具 / 站位）
+        - 剧本
+        - 分镜 / 转场
+        - 提示词
+        - 导演包导出
+        - ComfyUI 接入
+        - 界面与交互
+        - 其他
+    validations:
+      required: true

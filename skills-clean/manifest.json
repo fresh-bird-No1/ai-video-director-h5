@@ -1,0 +1,331 @@
+[
+ {
+  "id": "aivd-outline",
+  "name": "aivd-outline",
+  "description": "依据已确认的选题写完整创作大纲，含角色名单、时空、故事线、三幕、节奏、爽点矩阵、结局、付费卡点与逐集摘要看点，全部字段非空。",
+  "file": "skills-clean/aivd-outline/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-outline-check",
+  "name": "aivd-outline-check",
+  "description": "对照原文、选题与现有大纲逐项体检，先列问题位置、原文依据与改法；用户要求时才只修被点名的字段，并以 kind 为 outline 的 JSON 回写。",
+  "file": "skills-clean/aivd-outline-check/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-outline-script",
+  "name": "aivd-outline-script",
+  "description": "从剧本开始项目的大纲总控技能，按角色时空、故事线、爽点结局、逐集摘要四个子步骤依次编排并校验合并，不越权代写。",
+  "file": "skills-clean/aivd-outline-script/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-outline-cast",
+  "name": "aivd-outline-cast",
+  "description": "大纲子技能，只从原文提取角色名单、时空背景与世界规则三项，不写故事线、三幕、结局和分集。",
+  "file": "skills-clean/aivd-outline-cast/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-outline-ending",
+  "name": "aivd-outline-ending",
+  "description": "大纲子技能，只从原文提炼爽点配比与清单、结局落点与付费卡点，不写角色、三幕和分集。",
+  "file": "skills-clean/aivd-outline-ending/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-outline-episodes",
+  "name": "aivd-outline-episodes",
+  "description": "大纲子技能，一次只写一集的分集摘要，输出单条分集记录，含集号、短标题、本集摘要与一句话看点。",
+  "file": "skills-clean/aivd-outline-episodes/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-outline-story",
+  "name": "aivd-outline-story",
+  "description": "大纲子技能，只从原文提炼故事命题、欲望与缺陷、三幕升级和整体节奏，不写角色名单、爽点、结局与分集。",
+  "file": "skills-clean/aivd-outline-story/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-character",
+  "name": "aivd-character",
+  "description": "为项目建立可反复调用的角色卡，锁定叙事定位、人物画像、身份特征与音色说明，供定妆和视频环节直接引用。",
+  "file": "skills-clean/aivd-character/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-character-gap",
+  "name": "aivd-character-gap",
+  "description": "扫描选题、大纲、剧本与分镜，找出资产库里还没有角色卡的人，只补新卡并写满画像、身份锁与音色，已有卡一律不动。",
+  "file": "skills-clean/aivd-character-gap/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-prop",
+  "name": "aivd-prop",
+  "description": "为需要单独锁图的关键物件建立道具卡，写清剧情用途、材质与磨损、尺寸比例和画风，供多镜复用。",
+  "file": "skills-clean/aivd-prop/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-prop-gap",
+  "name": "aivd-prop-gap",
+  "description": "扫描大纲、剧本与分镜，找出需要锁图却还没有道具卡的关键物件，只补新卡并写满用途、材质、尺寸与画风。",
+  "file": "skills-clean/aivd-prop-gap/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-scene",
+  "name": "aivd-scene",
+  "description": "为短剧建立无人场景卡，锁定空间结构、叙事用途、光线方向、可复用地标与画风，保证多集多机位拍到同一副样子。",
+  "file": "skills-clean/aivd-scene/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-scene-gap",
+  "name": "aivd-scene-gap",
+  "description": "盘点剧本场次与分镜画面里的地点，只给资产库尚未收录的空间补建无人场景卡，完整写出用途、方位、光线、地标与画风。",
+  "file": "skills-clean/aivd-scene-gap/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-standing",
+  "name": "aivd-standing",
+  "description": "为有调度意义的瞬间建立站位卡，锁定集数、场次、镜号、人物相对位置、朝向、受光与地标参照。",
+  "file": "skills-clean/aivd-standing/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-standing-gap",
+  "name": "aivd-standing-gap",
+  "description": "按集扫描分镜与剧本，找出还缺站位图的关键调度瞬间，只补新卡并写明集数、场次、镜号、功能、光线与地标。",
+  "file": "skills-clean/aivd-standing-gap/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-script",
+  "name": "aivd-script",
+  "description": "依据确认后的梗概写单集场次剧本，同时给出整集时长预算与待建场景、道具卡",
+  "file": "skills-clean/aivd-script/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-script-check",
+  "name": "aivd-script-check",
+  "description": "按本集原文逐项核对剧本，先列问题再给出可直接回写的完整修正版",
+  "file": "skills-clean/aivd-script-check/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-script-adapt",
+  "name": "aivd-script-adapt",
+  "description": "把大纲拆好的本集原文逐句还原成场次，并补齐缺失的场景卡与道具卡",
+  "file": "skills-clean/aivd-script-adapt/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-shot-add",
+  "name": "aivd-shot-add",
+  "description": "短剧05-加一镜。通读本集全部分镜后，只在末尾续写一个镜头，不改已有镜头。用于导演大师「分镜」阶段。",
+  "file": "skills-clean/aivd-shot-add/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-board",
+  "name": "aivd-board",
+  "description": "短剧05-分镜。按转场把已确认剧本拆成镜头，每镜输出结构化 beats、timeline 与完整拍摄字段。用于导演大师「分镜」阶段。",
+  "file": "skills-clean/aivd-board/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-board-h3",
+  "name": "aivd-board-h3",
+  "description": "按转场把已确认剧本拆成镜头。每一镜用结构化 beats 写清构图、位置、光线、动作和声音，并归纳可复用场景与道具。不写六段视频提示词。",
+  "file": "skills-clean/aivd-board-h3/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-shot-revise",
+  "name": "aivd-shot-revise",
+  "description": "短剧05-改这镜。只调整当前打开镜头的分镜设定，未点名的字段维持原意；不重拆整集，不碰视频提示词。",
+  "file": "skills-clean/aivd-shot-revise/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-shot-h3",
+  "name": "aivd-shot-h3",
+  "description": "按当前镜头的生成方式（t2v/i2v/fl2v/r2v）写 MiniMax H3 英文视频提示词，锁定参考编号、毫秒时间码与台词原句。",
+  "file": "skills-clean/aivd-shot-h3/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-shot-h3-zh",
+  "name": "aivd-shot-h3-zh",
+  "description": "按当前镜头的生成方式（t2v/i2v/fl2v/r2v）写 MiniMax H3 中文视频提示词，保留参考编号、时间码与台词原句。",
+  "file": "skills-clean/aivd-shot-h3-zh/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-frame-prompt",
+  "name": "aivd-frame-prompt",
+  "description": "只为当前镜头写一张静帧分镜图提示词",
+  "file": "skills-clean/aivd-frame-prompt/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-h3-prompt",
+  "name": "aivd-h3-prompt",
+  "description": "单镜一次产出中文 H3 视频提示词、英文 H3 视频提示词和一张静帧分镜图提示词，按生成方式分流并共用同一组镜头事实。",
+  "file": "skills-clean/aivd-h3-prompt/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-topic",
+  "name": "aivd-topic",
+  "description": "把用户的想法收束成选题页可直接保存的十一项配置，并按选题页的枚举锁定题材、受众、调性、结局与画风。",
+  "file": "skills-clean/aivd-topic/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-topic-script",
+  "name": "aivd-topic-script",
+  "description": "通读已上传全文，按选题页字段归纳配置；集数按章节与完整情节计算，一章不拆多集，且不得超过篇幅容量。只归纳，不另写故事。",
+  "file": "skills-clean/aivd-topic-script/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-gpt2",
+  "name": "aivd-image-gpt2",
+  "description": "用已写好的定妆、场景或道具提示词发起出图，并把图片地址写回对应资产卡。",
+  "file": "skills-clean/aivd-image-gpt2/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-h3-suite",
+  "name": "aivd-h3-suite",
+  "description": "整集批量写 MiniMax H3 视频提示词：先建立全集合用的主体编号与公共定义，再逐镜按生成方式输出中英文提示词和静帧提示词。",
+  "file": "skills-clean/aivd-h3-suite/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-character",
+  "name": "aivd-image-character",
+  "description": "生成英文角色定妆拼图提示词：左侧全身三视图 + 右侧大面部特写，锁定同一张脸与造型。",
+  "file": "skills-clean/aivd-image-character/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-character-b",
+  "name": "aivd-image-character-b",
+  "description": "生成英文角色定妆拼图提示词：上方大面部特写 + 中部三视图 + 底部局部细节，锁定同一张脸与造型。",
+  "file": "skills-clean/aivd-image-character-b/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-character-c",
+  "name": "aivd-image-character-c",
+  "description": "生成英文人设定妆图提示词：左侧上图下细节 + 右侧人设文字与主色色卡，锁定同一张脸与造型。",
+  "file": "skills-clean/aivd-image-character-c/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-character-c-zh",
+  "name": "aivd-image-character-c-zh",
+  "description": "生成中文人设定妆图提示词：左侧图组 + 右侧人设文字与主色色卡，锁定同一张脸与造型。",
+  "file": "skills-clean/aivd-image-character-c-zh/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-character-b-zh",
+  "name": "aivd-image-character-b-zh",
+  "description": "生成中文角色定妆拼图提示词：上方大面部特写 + 中部三视图 + 底部局部细节，锁定同一张脸与造型。",
+  "file": "skills-clean/aivd-image-character-b-zh/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-character-zh",
+  "name": "aivd-image-character-zh",
+  "description": "生成中文角色定妆拼图提示词：左侧全身三视图 + 右侧大面部特写，锁定同一张脸与造型。",
+  "file": "skills-clean/aivd-image-character-zh/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-costume",
+  "name": "aivd-image-costume",
+  "description": "生成角色某套服装的出图提示词：不露脸的整套搭配展示（正面、侧面、背面三视图）+ 自上而下的单品拆解图，含面料与配饰细节。",
+  "file": "skills-clean/aivd-image-costume/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-prop",
+  "name": "aivd-image-prop",
+  "description": "生成道具卡出图提示词：主视图、多角度、结构与材质、尺寸参照与画风。",
+  "file": "skills-clean/aivd-image-prop/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-scene",
+  "name": "aivd-image-scene",
+  "description": "生成场景卡提示词：上方主图，下方一行四列不同机位，画面无人物。",
+  "file": "skills-clean/aivd-image-scene/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-scene-master",
+  "name": "aivd-image-scene-master",
+  "description": "生成单张场景主图提示词，不画四机位，强调纵深、地标与光线。",
+  "file": "skills-clean/aivd-image-scene-master/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-scene-plan",
+  "name": "aivd-image-scene-plan",
+  "description": "读平面图反推去顶俯视的场景提示词，锁定房间、家具、椅子朝向与门窗。",
+  "file": "skills-clean/aivd-image-scene-plan/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-image-standing",
+  "name": "aivd-image-standing",
+  "description": "生成单张站位图提示词，标明角色位置、朝向与视线，并返回参考图清单。",
+  "file": "skills-clean/aivd-image-standing/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-vertical-board",
+  "name": "aivd-vertical-board",
+  "description": "竖屏漫剧分镜。把已确认剧本拆成一镜一行的单镜表，含时长、景别、运镜、画面、结构化 beats、台词、资产与静帧提示词。用于导演大师「生成分镜」。",
+  "file": "skills-clean/aivd-vertical-board/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-vertical-script",
+  "name": "aivd-vertical-script",
+  "description": "把本集梗概写成竖屏漫剧场次，突出近景信息点、钩子密度与每场时长",
+  "file": "skills-clean/aivd-vertical-script/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-layout-polish",
+  "name": "aivd-layout-polish",
+  "description": "按用户站位要求，润色成可直接出图的角色空间占位提示词。",
+  "file": "skills-clean/aivd-layout-polish/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-scene-angle",
+  "name": "aivd-scene-angle",
+  "description": "依主图反推空间结构，为新机位写同场景另一角度提示词。",
+  "file": "skills-clean/aivd-scene-angle/SKILL.md",
+  "origin": "builtin"
+ },
+ {
+  "id": "aivd-transition",
+  "name": "aivd-transition",
+  "description": "为一对相邻镜头设计首尾帧转场，输出技法、时长与提示词",
+  "file": "skills-clean/aivd-transition/SKILL.md",
+  "origin": "builtin"
+ }
+]

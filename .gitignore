@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# 本地工作目录状态
+.workspace.json
+projects/
+packs/
+*.mmxpack.zip
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 生成的分享包
+.trae-html-share-packages/
