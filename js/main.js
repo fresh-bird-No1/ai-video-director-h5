@@ -9,19 +9,20 @@ import { streamChat, extractProposals, hasModel, testConnection, fetchModels, ge
 import { testComfy } from './comfy.js';
 import { buildDirectorPack } from './pack.js';
 import {
-  loadStatus, setWorkspace, pickDirectory, listProjects, getProject, putProject,
+  loadStatus, setWorkspace, pickDirectory, listProjects, getProject, putProject, saveMedia,
   deleteProject as deleteProjectOnDisk, savePack,
 } from './server.js';
 import {
   renderWelcome, renderWorkspace, renderShell, renderStage, renderChat, renderSettings, renderAssetCard,
   renderTopCenter, renderAssetGrid, renderShotCard, renderTransitionCard, renderShotList,
   renderSceneBlock, renderScriptSceneList, renderOutlineCharRows, renderEpisodeRows, esc,
-  skillSlotOptionsHtml,
+  skillSlotOptionsHtml, renderChatMessage, renderProposalList,
 } from './render.js';
 import { SKILL_SLOTS } from './skills.js';
 
 const app = document.getElementById('app');
 let aborter = null;
+let chatRunId = 0;
 let pendingAction = '';
 let pendingAsset = null;
 let pendingCostume = null;
@@ -173,6 +174,43 @@ function renderChatOnly() {
   scrollChat();
 }
 
+/** 追加一轮对话，不重建已有聊天记录（长对话下重排整段会很卡） */
+function appendChatMessages(messages) {
+  const log = document.getElementById('chatLog');
+  if (!log) return false;
+  log.querySelector('.chat-empty')?.remove();
+  log.insertAdjacentHTML('beforeend', messages.map(renderChatMessage).join(''));
+  return true;
+}
+
+/** 按消息 id 只替换一条消息 */
+function patchChatMessage(msg) {
+  if (!msg || !msg.id) return false;
+  const node = document.querySelector(`[data-msg-id="${msg.id}"]`);
+  if (!node) return false;
+  node.outerHTML = renderChatMessage(msg);
+  return true;
+}
+
+/** 只替换写入提案区 */
+function patchProposalList(chat) {
+  document.querySelector('.proposal-list')?.remove();
+  const html = renderProposalList(chat);
+  const log = document.getElementById('chatLog');
+  if (html && log) log.insertAdjacentHTML('afterend', html);
+}
+
+/** 发送 / 停止按钮随 busy 状态切换，避免重绘整个 Agent 面板 */
+function syncComposerButton(chat) {
+  const btn = document.querySelector('.composer-actions [data-action="send-chat"], .composer-actions [data-action="stop-chat"]');
+  if (!btn) return;
+  const want = chat.busy ? 'stop-chat' : 'send-chat';
+  if (btn.dataset.action === want) return;
+  btn.outerHTML = chat.busy
+    ? '<button class="btn btn-danger" data-action="stop-chat">停止</button>'
+    : '<button class="btn btn-primary" data-action="send-chat">发送</button>';
+}
+
 /** 替换单张资产卡；卡片不存在时返回 false，由调用方降级重绘 */
 function patchAssetCard(type, id) {
   const p = currentProject();
@@ -234,6 +272,38 @@ function patchTransitionCard(i) {
   if (toggle) toggle.checked = cfg.enabled !== false;
   card.classList.toggle('off', cfg.enabled === false);
   return true;
+}
+
+/** 写入提案后尽量只刷新受影响的一张卡；返回 false 时由调用方整页重绘 */
+function patchProposalResult(p, project) {
+  const kind = p.kind || '';
+  if (kind === 'prompts') return updatePromptPanel();
+  if (['characterPrompt', 'scenePrompt', 'propPrompt', 'standingPrompt'].includes(kind)) {
+    const type = kind.replace('Prompt', '');
+    const list = assetList(project, type);
+    const name = String(p.data?.name || '').trim();
+    const item = (name && list.find((a) => a.name === name))
+      || (pendingAsset && pendingAsset.type === type ? list[pendingAsset.index] : null);
+    return item ? patchAssetCard(type, item.id) : false;
+  }
+  if (kind === 'costumePrompt') {
+    const list = assetList(project, 'character');
+    let item = pendingAsset && pendingAsset.type === 'character' ? list[pendingAsset.index] : null;
+    const name = String(p.data?.name || p.data?.costumeName || '').trim();
+    if (!item && name) {
+      item = list.find((c) => (c.costumes || []).some((x) => x.name && (x.name === name || name.includes(x.name))));
+    }
+    return item ? patchAssetCard('character', item.id) : false;
+  }
+  if (kind === 'transition') {
+    const d = p.data.transition || p.data;
+    const shots = (project.board[Number(d.episodeNumber || state.ui.episode || 1)] || {}).shots || [];
+    const idx = d.index != null
+      ? Number(d.index)
+      : shots.findIndex((s, k) => s.id === d.fromShotId && shots[k + 1] && shots[k + 1].id === d.toShotId);
+    return patchTransitionCard(idx);
+  }
+  return false;
 }
 
 /** 删镜后镜序与转场索引前移，只重排镜头列表 */
@@ -407,6 +477,7 @@ function currentChapterLabel(project) {
 /**
  * 资产卡转成给技能的简报：保留全部文字设定字段，
  * 只剔除 id、图片地址、音色音频这类运行时字段，以及已定稿的提示词正文。
+ * 服装数组也压成纯文字，避免 base64 图片混进上下文。
  */
 function assetBrief(asset) {
   const skip = new Set(['id', 'prompt', 'image', 'voiceAudio', 'locked']);
@@ -414,6 +485,13 @@ function assetBrief(asset) {
   for (const [key, value] of Object.entries(asset || {})) {
     if (skip.has(key)) continue;
     if (value == null || value === '') continue;
+    if (key === 'costumes' && Array.isArray(value)) {
+      out.costumes = value.map((c) => ({
+        name: c.name || '', episodes: c.episodes || '', material: c.material || '',
+        palette: c.palette || '', description: c.description || '',
+      }));
+      continue;
+    }
     out[key] = value;
   }
   return out;
@@ -468,10 +546,16 @@ function targetAsset(project, action, index) {
 function buildUserMessage(action, project, index) {
   const parts = [];
   const target = targetAsset(project, action, index);
-  if (target) parts.push('当前卡片：' + JSON.stringify(target.item, null, 1));
+  if (target) {
+    // 不带 image / voiceAudio 的 base64，也不把旧提示词带给要重写的动作；
+    // 「换角度」例外：技能需要读当前主图提示词。
+    const snapshot = assetBrief(target.item);
+    if (action === 'sceneAngle') snapshot.prompt = target.item.prompt || '';
+    parts.push('当前卡片：' + JSON.stringify(snapshot, null, 1));
+  }
   if (target && action === 'costumePrompt' && pendingCostume != null) {
     const costume = (target.item.costumes || [])[Number(pendingCostume)];
-    if (costume) parts.push('当前服装：' + JSON.stringify(costume, null, 1));
+    if (costume) parts.push('当前服装：' + JSON.stringify(assetBrief(costume), null, 1));
   }
   const data = brief(project);
   if (['topic', 'outline', 'outlineCheck'].includes(action) && project.mode === 'script') {
@@ -550,10 +634,10 @@ async function runSkill(action, index) {
 async function sendChat(text, meta = {}) {
   const project = currentProject();
   if (!project || !String(text || '').trim()) return;
-  if (state.ui.chat.busy) return;
+  const chat = state.ui.chat;
   const action = meta.action || pendingAction;
   const stage = meta.stage || state.ui.stage;
-  const skillId = state.ui.chat.skillId || chooseSkill(action || 'topic', project, state.settings);
+  const skillId = chat.skillId || chooseSkill(action || 'topic', project, state.settings);
   let system;
   try {
     system = await composeSystem(skillId, stage, project);
@@ -561,21 +645,39 @@ async function sendChat(text, meta = {}) {
     toast(e.message, 'error');
     return;
   }
-  const chat = state.ui.chat;
-  chat.messages.push({ role: 'user', content: text });
-  chat.messages.push({ role: 'assistant', content: '', reasoning: '', pending: true });
+  // 上一个动作还在流式输出时，新动作直接接管：先停旧请求，避免点击被吞掉
+  if (chat.busy && aborter) aborter.abort();
+  const runId = ++chatRunId;
+  // 动作按钮切换了技能时，只发当前任务：否则「换角度」的上一轮对话会把紧接着的
+  // 「生成提示词」带偏；同一技能下的动作和自由对话保留上下文，方便继续追加要求。
+  const prevSkillId = [...chat.messages].reverse().find((m) => m.role === 'user')?.skillId || '';
+  const userMsg = { id: uid('m'), role: 'user', content: text, skillId };
+  const last = { id: uid('m'), role: 'assistant', content: '', reasoning: '', pending: true, skillId };
+  chat.messages.push(userMsg, last);
   chat.busy = true;
   chat.proposals = [];
   pendingAction = '';
-  renderChatOnly();
-  const history = chat.messages.filter((m) => !m.pending && m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
+  document.querySelector('.proposal-list')?.remove();
+  if (appendChatMessages([userMsg, last])) {
+    syncComposerButton(chat);
+    scrollChat();
+  } else {
+    renderChatOnly();
+  }
+  // 技能没变就沿用同一技能的上下文；技能切换后只发当前任务
+  const keepHistory = !meta.action || prevSkillId === skillId;
+  const history = keepHistory
+    ? chat.messages
+      .filter((m) => !m.pending && m.role !== 'system' && m.skillId === skillId)
+      .map((m) => ({ role: m.role, content: m.content }))
+    : [{ role: 'user', content: text }];
   aborter = new AbortController();
-  const last = chat.messages[chat.messages.length - 1];
-  // 流式增量很多，合并成约 100ms 一次刷新，避免每个 token 都重排整段富文本
+  const signal = aborter.signal;
+  // 流式增量很多，合并成约 200ms 一次刷新，且只更新当前这一条消息
   let flushTimer = null;
   const flushStream = () => {
     flushTimer = null;
-    const box = document.querySelector('.msg-assistant:last-of-type');
+    const box = document.querySelector(`[data-msg-id="${last.id}"]`);
     if (!box) return;
     const body = box.querySelector('.msg-body');
     if (body) body.innerHTML = window.__formatText(last.content) + (last.pending ? '<span class="cursor"></span>' : '');
@@ -587,13 +689,13 @@ async function sendChat(text, meta = {}) {
     scrollChat();
   };
   const scheduleFlush = () => {
-    if (!flushTimer) flushTimer = setTimeout(flushStream, 100);
+    if (!flushTimer) flushTimer = setTimeout(flushStream, 200);
   };
   try {
     const full = await streamChat({
       system,
       messages: history,
-      signal: aborter.signal,
+      signal,
       onDelta(delta) {
         last.content += delta;
         scheduleFlush();
@@ -606,10 +708,6 @@ async function sendChat(text, meta = {}) {
     last.content = full || last.content;
     last.pending = false;
     chat.proposals = extractProposals(last.content).map((p) => ({ ...p, action, index: meta.index }));
-    if (!chat.proposals.length && last.content.trim()) {
-      // 没有 JSON 时也给一条提示
-      chat.proposals = [];
-    }
   } catch (e) {
     last.pending = false;
     if (e.name === 'AbortError') last.content += '\n\n（已停止）';
@@ -617,9 +715,18 @@ async function sendChat(text, meta = {}) {
   } finally {
     clearTimeout(flushTimer);
     flushTimer = null;
-    chat.busy = false;
-    aborter = null;
-    renderChatOnly();
+    const patched = patchChatMessage(last);
+    if (runId === chatRunId) {
+      chat.busy = false;
+      aborter = null;
+      if (!patched) {
+        renderChatOnly();
+      } else {
+        patchProposalList(chat);
+        syncComposerButton(chat);
+        scrollChat();
+      }
+    }
   }
 }
 
@@ -935,6 +1042,66 @@ async function persistProject(project) {
     toast('保存到磁盘失败：' + err.message, 'error');
     return false;
   }
+}
+
+/**
+ * 把 ComfyUI 的临时输出地址转存到项目目录。
+ * 不转存的话，ComfyUI 重启或清理临时目录后，资产图会全部裂掉、音频也会无法播放。
+ */
+async function persistMedia(project, url) {
+  const src = String(url || '');
+  if (!src || !state.ui.serverOnline || !project) return src;
+  if (src.startsWith('data:') || src.startsWith('/api/media/')) return src;
+  if (!/^https?:\/\//i.test(src)) return src;
+  try {
+    const saved = await saveMedia(project.id, src);
+    return saved?.url || src;
+  } catch (err) {
+    console.warn('媒体转存失败，保留原地址：', err);
+    return src;
+  }
+}
+
+/** 音色试听文案按角色语种生成，避免英语/日语角色也用中文试听 */
+function voiceSample(item) {
+  const name = item?.name || '';
+  const lang = String(item?.language || '');
+  if (/英|english/i.test(lang)) return `Hi, I'm ${name || 'me'}. This is a voice sample.`;
+  if (/日|japanese|日本語/i.test(lang)) return `こんにちは、${name || '私'}です。これは声のサンプルです。`;
+  if (/韩|korean|한국어/i.test(lang)) return `안녕하세요, ${name || '나'}입니다. 목소리 샘플입니다.`;
+  if (/粤|cantonese/i.test(lang)) return `你好，我係${name || '我'}，呢個係我把聲嘅試聽。`;
+  return `你好，我是${name || '我'}，这是音色试听。`;
+}
+
+/** 打开旧项目时，把历史遗留的 ComfyUI 外链媒体补转存到本地 */
+async function migrateRemoteMedia(project) {
+  if (!state.ui.serverOnline || !project) return;
+  const holders = [];
+  for (const c of project.characters || []) {
+    holders.push([c, 'image'], [c, 'voiceAudio']);
+    for (const costume of c.costumes || []) holders.push([costume, 'image']);
+  }
+  for (const key of ['scenes', 'props', 'standings']) {
+    for (const item of project[key] || []) holders.push([item, 'image']);
+  }
+  const jobs = holders.filter(([holder, key]) => /^https?:\/\//i.test(String(holder[key] || '')));
+  if (!jobs.length) return;
+  let fixed = 0;
+  await Promise.all(jobs.map(async ([holder, key]) => {
+    try {
+      const saved = await saveMedia(project.id, holder[key]);
+      if (saved?.url) {
+        holder[key] = saved.url;
+        fixed += 1;
+      }
+    } catch (err) {
+      // ComfyUI 已关闭或文件已被清理时转存不了，保留原地址
+    }
+  }));
+  if (!fixed) return;
+  touch(project);
+  await persistProject(project);
+  if (state.ui.stage === 'assets') patchAssetGrid();
 }
 
 let diskTimer = null;
@@ -1296,6 +1463,7 @@ async function onClick(e) {
         state.ui.assetTab = 'character';
         state.ui.chat = { messages: [], skillId: defaultSkillForStage(loaded), busy: false, proposals: [] };
         renderAll();
+        migrateRemoteMedia(loaded);
       } catch (err) {
         toast('读取项目失败：' + err.message, 'error');
       }
@@ -1389,8 +1557,9 @@ async function onClick(e) {
       if (!costume.prompt) return toast('先生成这套服装的提示词', 'error');
       toast('正在出图…');
       try {
-        costume.image = await generateImage(costume.prompt);
+        costume.image = await persistMedia(project, await generateImage(costume.prompt));
         touch(project);
+        flushDisk();
         if (!patchAssetCard('character', character.id)) patchAssetGrid();
         toast('服装图已写入');
       } catch (err) {
@@ -1646,9 +1815,10 @@ async function onClick(e) {
       toast('正在生成音色试听…');
       try {
         // 工作流里的 voice_instruction 是示例文案，必须按角色改写，否则所有人都是同一个声音
-        const sample = `你好，我是${item.name || '我'}，这是音色试听。`;
-        item.voiceAudio = await generateAudio(sample, { voice: item.voice });
+        const sample = voiceSample(item);
+        item.voiceAudio = await persistMedia(project, await generateAudio(sample, { voice: item.voice }));
         touch(project);
+        flushDisk();
         if (!patchAssetCard('character', item.id)) patchAssetGrid();
         toast('音色试听已生成');
       } catch (err) {
@@ -1664,8 +1834,9 @@ async function onClick(e) {
       if (!item || !item.prompt) return toast('先生成提示词', 'error');
       toast(`正在出图（提示词 ${String(item.prompt).length} 字）…`);
       try {
-        item.image = await generateImage(item.prompt);
+        item.image = await persistMedia(project, await generateImage(item.prompt));
         touch(project);
+        flushDisk();
         if (!patchAssetCard(type, item.id)) patchAssetGrid();
         toast('图片已写入');
       } catch (err) {
@@ -1696,19 +1867,9 @@ async function onClick(e) {
         touch(project);
         state.ui.chat.proposals = [];
         document.querySelector('.proposal-list')?.remove();
-        // 提案可能改项目名、集数或当前阶段数据：只刷新顶栏与主区域，保留聊天和滚动位置
+        // 提案可能改项目名、集数或当前阶段数据：只刷新顶栏与受影响区域，保留聊天和滚动位置
         patchTopCenter();
-        if (p.kind === 'transition') {
-          // 转场只回填对应卡片，不重建整张分镜表，避免长列表滚动跳动
-          const d = p.data.transition || p.data;
-          const shots = (project.board[Number(d.episodeNumber || state.ui.episode || 1)] || {}).shots || [];
-          const idx = d.index != null
-            ? Number(d.index)
-            : shots.findIndex((s, k) => s.id === d.fromShotId && shots[k + 1] && shots[k + 1].id === d.toShotId);
-          if (!patchTransitionCard(idx)) renderMainOnly();
-        } else {
-          renderMainOnly();
-        }
+        if (!patchProposalResult(p, project)) renderMainOnly();
         toast('已写入草稿');
       } catch (err) {
         toast(err.message, 'error');
@@ -1889,7 +2050,8 @@ document.addEventListener('input', (e) => {
     const item = transitionEntry(epData, a.id, b.id, true);
     const field = e.target.dataset.transitionField;
     item[field] = field === 'duration' ? normalizeTransitionDuration(e.target.value) : e.target.value;
-    touch(project);
+    // 与其它长文本一致：输入时只防抖保存，change / focusout 时再整体落盘
+    touchLazy(project);
   }
 });
 
@@ -2044,6 +2206,7 @@ document.addEventListener('change', async (e) => {
         item.voiceAudio = await readAudioFile(file);
       }
       touch(project);
+      flushDisk();
       if (!patchAssetCard(type, item.id)) patchAssetGrid();
       toast(el.dataset.upload === 'image' ? '图片已上传' : '音频已上传');
     } catch (err) {
@@ -2063,6 +2226,7 @@ document.addEventListener('change', async (e) => {
         state.ui.episode = 1;
         state.ui.chat = { messages: [], skillId: defaultSkillForStage(loaded), busy: false, proposals: [] };
         renderAll();
+        migrateRemoteMedia(loaded);
       } catch (err) {
         toast('切换项目失败：' + err.message, 'error');
         renderAll();

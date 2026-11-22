@@ -16,6 +16,8 @@
   GET    /api/projects/<id>       读取完整项目
   PUT    /api/projects/<id>       写入完整项目（不存在则创建）
   DELETE /api/projects/<id>       删除项目
+  POST   /api/media               {"projectId","url"} 把 ComfyUI 结果转存到项目目录
+  GET    /api/media/<id>/<file>   读取项目媒体（支持 Range，音频可拖动）
   POST   /api/packs/<name>        保存导演包（*.mmxpack.zip）
   GET    /api/skills              列出 skills-clean 下的技能
   POST   /api/skills              新建自定义技能（写 SKILL.md 并重建 manifest）
@@ -32,16 +34,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import mimetypes
 import os
 import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, parse_qs
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / ".workspace.json"
@@ -52,7 +57,16 @@ ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 SKILL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 CUSTOM_ID_RE = re.compile(r"^custom-[a-z0-9][a-z0-9-]{0,55}$")
 PACK_RE = re.compile(r"^[A-Za-z0-9._-]{1,120}\.mmxpack\.zip$")
+MEDIA_FILE_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}\.[A-Za-z0-9]{1,8}$")
 MAX_BODY = 512 * 1024 * 1024
+MAX_MEDIA_BYTES = 64 * 1024 * 1024
+# Python 的 mimetypes 会把 .flac 识别成 audio/x-flac，部分浏览器不认；统一成标准类型
+MEDIA_MIME = {
+    ".flac": "audio/flac",
+    ".opus": "audio/ogg",
+    ".m4a": "audio/mp4",
+    ".webp": "image/webp",
+}
 MAX_SKILL_BODY = 64 * 1024
 SKILL_META_KEYS = ("name", "description", "slot", "stage", "origin", "version", "author", "license")
 
@@ -414,6 +428,48 @@ def project_dir(ws: Path, project_id: str) -> Path:
     return ws / "projects" / project_id
 
 
+def media_dir(ws: Path, project_id: str) -> Path:
+    folder = project_dir(ws, project_id) / "media"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+def save_remote_media(ws: Path, project_id: str, url: str) -> dict:
+    """把 ComfyUI 的 /view 地址转存进项目目录。
+
+    ComfyUI 的临时输出会在重启后失效，直接存外部地址会让图片和音频全部裂掉；
+    转存后项目自带媒体，换机器、重启服务都不受影响。
+    """
+    raw = str(url or "").strip()
+    if not re.match(r"^https?://", raw, re.I):
+        raise ValueError("只支持 http/https 媒体地址")
+    if not (project_dir(ws, project_id) / "project.json").is_file():
+        raise ValueError("项目不存在")
+    req = urllib.request.Request(raw, headers={"User-Agent": "DirectorMasterH5/1.0"})
+    with urllib.request.urlopen(req, timeout=15) as res:
+        mime = (res.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        data = res.read(MAX_MEDIA_BYTES + 1)
+    if not data:
+        raise ValueError("下载到的媒体文件为空")
+    if len(data) > MAX_MEDIA_BYTES:
+        raise ValueError("媒体文件超过 64MB")
+    ext = mimetypes.guess_extension(mime) if mime.startswith(("image/", "audio/", "video/")) else ""
+    if not ext:
+        # ComfyUI 的地址形如 /view?filename=xxx.png，按 query 里的文件名补扩展名
+        query = parse_qs(urlparse(raw).query)
+        candidates = [(query.get("filename") or [""])[0], urlparse(raw).path]
+        ext = next((Path(c).suffix.lower() for c in candidates if re.match(r"^\.[a-z0-9]{1,8}$", Path(c).suffix.lower() or "")), "")
+    if not re.match(r"^\.[a-z0-9]{1,8}$", ext or ""):
+        ext = ".bin"
+    name = hashlib.sha1(data).hexdigest()[:16] + ext
+    target = media_dir(ws, project_id) / name
+    if not target.is_file():
+        tmp = target.with_name(target.name + "." + uuid.uuid4().hex[:6] + ".tmp")
+        tmp.write_bytes(data)
+        os.replace(tmp, target)
+    return {"url": f"/api/media/{project_id}/{name}", "mime": mime, "size": len(data)}
+
+
 def list_projects(ws: Path) -> list[dict]:
     items: list[dict] = []
     root = ws / "projects"
@@ -454,7 +510,10 @@ class Handler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         path = urlparse(self.path).path
-        if path.startswith("/api/"):
+        if path.startswith("/api/media/"):
+            # 媒体文件名是内容哈希，可以长期缓存
+            pass
+        elif path.startswith("/api/"):
             self.send_header("Cache-Control", "no-store")
         elif path in ("", "/") or path.endswith((".js", ".mjs", ".css", ".html")):
             # 代码和样式不走缓存，避免改完刷新还是旧版本
@@ -482,6 +541,44 @@ class Handler(SimpleHTTPRequestHandler):
     def api_path(self) -> str:
         return urlparse(self.path).path
 
+    def send_media(self, target: Path) -> None:
+        """按 Range 返回媒体文件，让音频可以拖动进度。"""
+        size = target.stat().st_size
+        mime = MEDIA_MIME.get(target.suffix.lower()) or mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        start, end, status = 0, max(size - 1, 0), 200
+        m = re.match(r"^bytes=(\d*)-(\d*)$", (self.headers.get("Range") or "").strip())
+        if m and size > 0:
+            a, b = m.group(1), m.group(2)
+            if a:
+                start = int(a)
+                end = min(int(b), size - 1) if b else size - 1
+            elif b:
+                start = max(0, size - int(b))
+            if start > end or start >= size:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            status = 206
+        self.send_response(status)
+        self.send_header("Content-Type", mime)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(end - start + 1))
+        if status == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.end_headers()
+        with open(target, "rb") as fh:
+            fh.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                chunk = fh.read(min(1024 * 256, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
+
     # ---------- 路由 ----------
 
     def do_GET(self):
@@ -501,6 +598,18 @@ class Handler(SimpleHTTPRequestHandler):
                 "workspace": str(ws) if ws else "",
                 "suggested": str(DEFAULT_WORKSPACE),
             })
+        if path.startswith("/api/media/"):
+            ws = workspace_path()
+            if not ws:
+                return self.send_json({"error": "尚未设置工作目录"}, 409)
+            parts = unquote(path[len("/api/media/"):]).split("/")
+            if len(parts) != 2 or not ID_RE.match(parts[0]) or not MEDIA_FILE_RE.match(parts[1]):
+                return self.send_json({"error": "媒体路径非法"}, 400)
+            folder = media_dir(ws, parts[0]).resolve()
+            target = (folder / parts[1]).resolve()
+            if not target.is_file() or folder not in target.parents:
+                return self.send_json({"error": "媒体不存在"}, 404)
+            return self.send_media(target)
         if path == "/api/pick-dir":
             try:
                 chosen = pick_directory()
@@ -549,6 +658,15 @@ class Handler(SimpleHTTPRequestHandler):
                 config["workspace"] = str(ws)
                 write_config(config)
                 return self.send_json({"workspace": str(ws), "projects": list_projects(ws)})
+            if path == "/api/media":
+                data = self.read_json()
+                ws = workspace_path()
+                if not ws:
+                    return self.send_json({"error": "尚未设置工作目录"}, 409)
+                project_id = str(data.get("projectId") or "").strip()
+                if not ID_RE.match(project_id):
+                    return self.send_json({"error": "项目 ID 非法"}, 400)
+                return self.send_json(save_remote_media(ws, project_id, data.get("url")))
             if path.startswith("/api/packs/"):
                 ws = workspace_path()
                 if not ws:

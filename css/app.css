@@ -237,7 +237,11 @@ input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 .tab { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 14px; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
 .asset-grid { display: grid; grid-template-columns: 1fr; gap: 12px; min-width: 0; }
-.asset-card { min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: start; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0; }
+.asset-card { min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: start; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0;
+  /* 资源多时视口外的卡片跳过布局与绘制，减少整页重排 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
 .asset-card.open { border-color: #35445c; }
 .asset-head { display: flex; align-items: flex-start; gap: 8px; }
 .asset-id { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }

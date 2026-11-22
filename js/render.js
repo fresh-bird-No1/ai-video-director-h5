@@ -333,6 +333,8 @@ export function renderAssetCard(state, project, type, a, i) {
   let fields = '';
   if (type === 'character') {
     fields = `<div class="grid-2 tight">
+      ${field('人种 / 族裔', p + '.ethnicity', a.ethnicity, { hint: '会写入定妆提示词，保证出图时肤色、骨相、发质与族裔一致', placeholder: '例如：东亚、北欧白人、非裔、南亚、拉丁裔' })}
+      ${field('台词语种', p + '.language', a.language, { hint: '剧本台词、分镜台词与音色试听都按这个语种生成', placeholder: '例如：中文、英语、日语、韩语、粤语' })}
       ${field('人物画像', p + '.profile', a.profile, { type: 'textarea', wide: true, rows: 5 })}
       ${field('音色说明', p + '.voice', a.voice, { type: 'textarea', wide: true, rows: 2, placeholder: '年龄段、音域、质感、语速，例如：25 岁女声，中低音，微沙，语速偏慢' })}
     </div>`;
@@ -375,7 +377,7 @@ export function renderAssetCard(state, project, type, a, i) {
         return `<div class="costume-card">
           <div class="costume-thumb">
             ${c.image
-              ? `<img class="zoomable" src="${val(c.image)}" alt="${val(c.name)}" title="点击放大" data-action="zoom-image" />`
+              ? `<img class="zoomable" src="${val(c.image)}" alt="${val(c.name)}" title="点击放大" loading="lazy" decoding="async" data-action="zoom-image" />`
               : '<span class="muted small">无图</span>'}
             <label class="btn btn-sm upload-overlay">${c.image ? '换图' : '上传'}
               <input type="file" accept="image/*" data-upload="image" data-type="character" data-id="${a.id}" data-costume="${c.id}" hidden />
@@ -408,7 +410,7 @@ export function renderAssetCard(state, project, type, a, i) {
   return `<div class="asset-card ${open ? 'open' : ''}" data-card="${a.id}">
     <div class="asset-visual">
       ${a.image
-        ? `<img class="asset-img zoomable" src="${val(a.image)}" alt="${val(a.name)}" title="点击放大" data-action="zoom-image" />`
+        ? `<img class="asset-img zoomable" src="${val(a.image)}" alt="${val(a.name)}" title="点击放大" loading="lazy" decoding="async" data-action="zoom-image" />`
         : `<div class="asset-img-empty">无${type === 'character' ? '定妆图' : '图'}</div>`}
       ${upload('image', 'image/*', a.image ? '换图' : '上传图片', 'upload-overlay')}
     </div>
@@ -660,18 +662,23 @@ function renderPrompts(state, project) {
     </div>` : '<div class="empty-state">先到「分镜」阶段生成镜头。</div>'}`;
 }
 
-export function renderChat(state, project) {
-  const chat = state.ui.chat;
-  const msgs = chat.messages.map((m) => {
-    if (m.role === 'user') return `<div class="msg msg-user"><div class="msg-body">${formatText(m.content)}</div></div>`;
-    const think = (m.pending || m.reasoning)
-      ? `<details class="msg-think" ${m.pending ? 'open' : ''}>
-          <summary>${m.pending ? '思考中…' : '思考过程'}</summary>
-          <div class="think-body">${esc(m.reasoning || '等待模型响应…')}</div>
-        </details>`
-      : '';
-    return `<div class="msg msg-assistant">${think}<div class="msg-body">${formatText(m.content || '')}${m.pending ? '<span class="cursor"></span>' : ''}</div></div>`;
-  }).join('');
+/** 单条聊天消息：流式输出时按 data-msg-id 局部替换，不重建整段对话 */
+export function renderChatMessage(m) {
+  const idAttr = m.id ? ` data-msg-id="${val(m.id)}"` : '';
+  if (m.role === 'user') {
+    return `<div class="msg msg-user"${idAttr}><div class="msg-body">${formatText(m.content)}</div></div>`;
+  }
+  const think = (m.pending || m.reasoning)
+    ? `<details class="msg-think" ${m.pending ? 'open' : ''}>
+        <summary>${m.pending ? '思考中…' : '思考过程'}</summary>
+        <div class="think-body">${esc(m.reasoning || '等待模型响应…')}</div>
+      </details>`
+    : '';
+  return `<div class="msg msg-assistant"${idAttr}>${think}<div class="msg-body">${formatText(m.content || '')}${m.pending ? '<span class="cursor"></span>' : ''}</div></div>`;
+}
+
+/** 写入提案区：生成完成后只替换这一块 */
+export function renderProposalList(chat) {
   const proposals = (chat.proposals || []).map((p, i) => `<div class="proposal">
       <div><b>${proposalLabel(p.kind)}</b>${p.error ? `<span class="badge badge-red">${esc(p.error)}</span>` : ''}</div>
       <pre>${esc(p.raw.slice(0, 1500))}</pre>
@@ -680,6 +687,12 @@ export function renderChat(state, project) {
         <button class="btn btn-sm" data-action="copy-proposal" data-index="${i}">复制 JSON</button>
       </div>
     </div>`).join('');
+  return proposals ? `<div class="proposal-list">${proposals}</div>` : '';
+}
+
+export function renderChat(state, project) {
+  const chat = state.ui.chat;
+  const msgs = chat.messages.map(renderChatMessage).join('');
   const stageSkills = listSkills();
   const skillOptions = stageSkills.map((s) => `<option value="${s.id}" ${chat.skillId === s.id ? 'selected' : ''}>${esc(s.name)} · ${esc(s.id)}</option>`).join('');
   return `<div class="chat-head">
@@ -690,7 +703,7 @@ export function renderChat(state, project) {
       <select data-action="set-chat-skill" title="本次对话使用的技能">${skillOptions || '<option>技能加载中…</option>'}</select>
     </div>
     <div class="chat-log" id="chatLog">${msgs || '<div class="chat-empty">选一个阶段动作，或直接描述你要做什么。<br/><span class="muted small">技能正文会原样拼进 system prompt，版权声明保留。</span></div>'}</div>
-    ${proposals ? `<div class="proposal-list">${proposals}</div>` : ''}
+    ${renderProposalList(chat)}
     <div class="composer">
       <textarea id="chatInput" rows="3" placeholder="${project ? '例如：把第 2 场对白改短，情绪更克制…' : '先新建项目'}" ${project ? '' : 'disabled'}></textarea>
       <div class="composer-actions">

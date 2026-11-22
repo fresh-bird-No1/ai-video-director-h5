@@ -319,14 +319,16 @@ const STAGE_CONTRACTS = {
   outline: `当前阶段：创作大纲。输出 JSON 形状：
 {"kind":"outline","data":{"logline":"","synopsis":"","want":"","need":"","flaw":"","worldRules":"","setting":"","act1":"","act2":"","act3":"","rhythm":"","highlights":"","ending":"","paywall":"","characters":[{"name":"","role":"","description":""}],"episodes":[{"number":1,"title":"","synopsis":"","logline":""}]}}`,
   assets: `当前阶段：资产设计。根据子类型输出 JSON 形状：
-角色 {"kind":"characters","data":{"characters":[{"name":"","role":"","description":"","profile":"","voiceNotes":""}]}}
+角色 {"kind":"characters","data":{"characters":[{"name":"","role":"","description":"","ethnicity":"","language":"","profile":"","voice":""}]}}
+ethnicity 与 language 必填：ethnicity 决定定妆图的族裔、肤色、骨相与发质；language 决定该角色台词语种，剧本台词与 H3 提示词的 <d> 语种标签都以它为准。
 场景 {"kind":"scenes","data":{"scenes":[{"name":"","description":"","location":"","lighting":"","landmark":"","style":""}]}}
 道具 {"kind":"props","data":{"props":[{"name":"","description":"","usage":"","material":"","size":"","style":""}]}}
 站位 {"kind":"standings","data":{"standings":[{"name":"","episode":1,"shot":"","function":"","lighting":"","landmark":"","style":""}]}}
 写提示词时，把提示词写入对应项目的 prompt 字段，例如 {"kind":"characterPrompt","data":{"name":"角色名","prompt":"..."}}。
 服装提示词 {"kind":"costumePrompt","data":{"name":"服装名称","prompt":"..."}}。`,
   script: `当前阶段：分集剧本。输出 JSON 形状：
-{"kind":"script","data":{"episodeNumber":1,"title":"","scenes":[{"title":"","location":"","time":"","actions":["动作/画面"],"narration":["旁白"],"lines":[{"speaker":"角色名","text":"对白"}]}]}}`,
+{"kind":"script","data":{"episodeNumber":1,"title":"","scenes":[{"title":"","location":"","time":"","actions":["动作/画面"],"narration":["旁白"],"lines":[{"speaker":"角色名","text":"对白"}]}]}}
+台词规则：lines 的 text 必须用该说话人角色卡里的 language（语种）书写；角色卡没有 language 时用选题 language。同一说话人全程不换语种，不同语种同场各说各的，不做翻译或括注。`,
   board: `当前阶段：分镜。输出 JSON 形状：
 {"kind":"board","data":{"episodeNumber":1,"shots":[{"no":1,"duration":"4秒","shotSize":"中景","camera":"固定","description":"画面","timeline":"0-2秒……","dialogue":"","assets":[],"costumes":["角色名：服装名称"]}]}}
 costumes 只写本镜需要换装的角色，格式固定为「角色名：服装名称」，服装名称必须与角色卡里的服装名称一致；角色没有服装卡或本镜穿默认造型时不要写该角色，UI 会默认使用定妆图。

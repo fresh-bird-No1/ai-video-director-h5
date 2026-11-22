@@ -21,8 +21,9 @@ version: 1.1.0
 2. Generation mode: read `targetShot.mode` first, then `videoMode` from the payload. If both are absent, fall back to `r2v`. If the shot has neither asset references nor attached first/last frames, switch to `t2v`.
 3. `data.board`: confirms where this shot sits in the episode, what the previous shot ended on, and whether continuity is enabled.
 4. `data.script`: the episode script, used to verify speakers, action order and exact dialogue.
-5. `data.assets`: `characters`, `scenes`, `props`, `standings`; supplies locked appearance, spatial landmarks, materials and costume names.
-6. `data.prompts`: existing prompts for this project. Look up the current shot by `shot.id` or `String(shot.no)` to decide whether to create a fresh prompt or revise an existing one.
+5. `data.assets.characters[].language`: sets the `<d>` language tag; never hard-code Chinese.
+6. `data.assets`: `characters`, `scenes`, `props`, `standings`; supplies locked appearance, spatial landmarks, materials and costume names.
+7. `data.prompts`: existing prompts for this project. Look up the current shot by `shot.id` or `String(shot.no)` to decide whether to create a fresh prompt or revise an existing one.
 
 ### Building the reference catalog
 
@@ -78,7 +79,7 @@ Reference sentence patterns (category demonstration only, not fixed slots):
 
 - Use only the exact line from `dialogue`. If it reads `角色名：原句`, drop the name and colon and keep the sentence after the colon.
 - If the sentence is wrapped in Chinese quotation marks “ ”, keep only the text inside them. Actions and expressions outside the quotes become visual description and must never enter the dialogue tag.
-- Wrap every line as `<d>[Chinese] 原文</d>` without changing a character. If the shot has no dialogue, omit `<d>` entirely and do not write a placeholder such as "no dialogue".
+- Wrap every line as `<d>[language] 原文</d>` without changing a character. The tag is the speaker's language from the character card (Chinese → Chinese, English → English, Japanese → Japanese, Korean → Korean, Cantonese → Cantonese); fall back to the project language, then Chinese. If the shot has no dialogue, omit `<d>` entirely and do not write a placeholder such as "no dialogue".
 - Mark the speaker as `<Subject N> (S1)`: `<Subject N>` is the speaking subject, and `S1`, `S2` follow the speaking order in this shot. A subject who speaks twice keeps the same Subject number.
 - When a line is cut off, put `<cutoff>` immediately after `</d>`; never complete the sentence for the character.
 - When a hard cut lands against dialogue, place `<scenetrans>` at the cut point and keep the same line intact on both sides.
@@ -177,7 +178,7 @@ End the reply with a JSON block shaped as `{"kind":"prompts","data":{...}}`; kee
 - Route by mode: `t2v` must have an empty `instruction`; `i2v` must anchor 0.00 seconds to `<Picture 1>`; `fl2v` must state both the 0.00-second first frame and the `S.SS`-second last frame; `r2v` must contain all six sections. Never mix Base and six-part layouts.
 - Reference count, order, numbering, category and names must match project data. Category vocabulary is limited to 角色、道具、场景、站位图、参考图.
 - Timeline starts at `00:00.000`, adjacent beats touch, the last beat equals total duration, no action overruns.
-- Dialogue is quoted exactly inside `<d>[Chinese] …</d>`; actions outside quotation marks are never dialogue; omit the tag when no line exists.
+- Dialogue is quoted exactly inside `<d>[language] …</d>`, with the tag matching the speaker's character-card language; actions outside quotation marks are never dialogue; omit the tag when no line exists.
 - Continuity follows all six rules in section 8; shot 1 never claims continuity; a hard cut never says "no hard cut".
 - No Markdown headings, rules, bold section names or Chinese section titles inside the prompt.
 - No new characters, props, scenes, lines or plot turns; keep asset names exactly as stored.
@@ -188,6 +189,6 @@ End the reply with a JSON block shaped as `{"kind":"prompts","data":{...}}`; kee
 - Is every catalog entry represented once, in order, with only the five allowed category words?
 - Do timecodes start at zero, touch end to start, and end at the total duration?
 - Does every action fit the duration, and do framing and camera match the fields?
-- Is dialogue limited to the original line, speakers marked `<Subject N> (S1)`, interruptions marked `<cutoff>` / `<scenetrans>`?
+- Is dialogue limited to the original line, speakers marked `<Subject N> (S1)`, the `<d>` language tag matching the character card, interruptions marked `<cutoff>` / `<scenetrans>`?
 - Is `linkPrev` handled correctly, with shot 1 treated as a hard cut?
 - Does the output parse as JSON, and is `shotNo` still present?

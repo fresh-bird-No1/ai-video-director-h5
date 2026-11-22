@@ -49,6 +49,11 @@ export function putProject(project) {
   });
 }
 
+/** 把 ComfyUI 的输出转存到项目目录，返回项目内的媒体地址 */
+export function saveMedia(projectId, url) {
+  return request('/api/media', { method: 'POST', json: { projectId, url } });
+}
+
 export function deleteProject(id) {
   return request('/api/projects/' + encodeURIComponent(id), { method: 'DELETE' });
 }

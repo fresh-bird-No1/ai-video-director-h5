@@ -51,14 +51,14 @@
  {
   "id": "aivd-character",
   "name": "aivd-character",
-  "description": "为项目建立可反复调用的角色卡，锁定叙事定位、人物画像、身份特征与音色说明，供定妆和视频环节直接引用。",
+  "description": "为项目建立可反复调用的角色卡，锁定叙事定位、人物画像、身份特征、人种与台词语种，供定妆和视频环节直接引用。",
   "file": "skills-clean/aivd-character/SKILL.md",
   "origin": "builtin"
  },
  {
   "id": "aivd-character-gap",
   "name": "aivd-character-gap",
-  "description": "扫描选题、大纲、剧本与分镜，找出资产库里还没有角色卡的人，只补新卡并写满画像、身份锁与音色，已有卡一律不动。",
+  "description": "扫描选题、大纲、剧本与分镜，找出资产库里还没有角色卡的人，只补新卡并写满画像、人种、台词语种、身份锁与音色，已有卡一律不动。",
   "file": "skills-clean/aivd-character-gap/SKILL.md",
   "origin": "builtin"
  },
@@ -107,7 +107,7 @@
  {
   "id": "aivd-script",
   "name": "aivd-script",
-  "description": "依据确认后的梗概写单集场次剧本，同时给出整集时长预算与待建场景、道具卡",
+  "description": "依据确认后的梗概写单集场次剧本，台词按各角色语种书写，同时给出整集时长预算与待建场景、道具卡",
   "file": "skills-clean/aivd-script/SKILL.md",
   "origin": "builtin"
  },
@@ -212,42 +212,42 @@
  {
   "id": "aivd-image-character",
   "name": "aivd-image-character",
-  "description": "生成英文角色定妆拼图提示词：左侧全身三视图 + 右侧大面部特写，锁定同一张脸与造型。",
+  "description": "生成英文角色定妆拼图提示词：左侧全身三视图 + 右侧大面部特写，按角色人种锁定族裔、肤色、骨相与发质，锁定同一张脸与造型。",
   "file": "skills-clean/aivd-image-character/SKILL.md",
   "origin": "builtin"
  },
  {
   "id": "aivd-image-character-b",
   "name": "aivd-image-character-b",
-  "description": "生成英文角色定妆拼图提示词：上方大面部特写 + 中部三视图 + 底部局部细节，锁定同一张脸与造型。",
+  "description": "生成英文角色定妆拼图提示词：上方大面部特写 + 中部三视图 + 底部局部细节，按角色人种锁定族裔、肤色、骨相与发质，锁定同一张脸与造型。",
   "file": "skills-clean/aivd-image-character-b/SKILL.md",
   "origin": "builtin"
  },
  {
   "id": "aivd-image-character-c",
   "name": "aivd-image-character-c",
-  "description": "生成英文人设定妆图提示词：左侧上图下细节 + 右侧人设文字与主色色卡，锁定同一张脸与造型。",
+  "description": "生成英文人设定妆图提示词：左侧上图下细节 + 右侧人设文字与主色色卡，按角色人种锁定族裔、肤色、骨相与发质，锁定同一张脸与造型。",
   "file": "skills-clean/aivd-image-character-c/SKILL.md",
   "origin": "builtin"
  },
  {
   "id": "aivd-image-character-c-zh",
   "name": "aivd-image-character-c-zh",
-  "description": "生成中文人设定妆图提示词：左侧图组 + 右侧人设文字与主色色卡，锁定同一张脸与造型。",
+  "description": "生成中文人设定妆图提示词：左侧图组 + 右侧人设文字与主色色卡，按角色人种锁定族裔、肤色、骨相与发质，锁定同一张脸与造型。",
   "file": "skills-clean/aivd-image-character-c-zh/SKILL.md",
   "origin": "builtin"
  },
  {
   "id": "aivd-image-character-b-zh",
   "name": "aivd-image-character-b-zh",
-  "description": "生成中文角色定妆拼图提示词：上方大面部特写 + 中部三视图 + 底部局部细节，锁定同一张脸与造型。",
+  "description": "生成中文角色定妆拼图提示词：上方大面部特写 + 中部三视图 + 底部局部细节，按角色人种锁定族裔、肤色、骨相与发质，锁定同一张脸与造型。",
   "file": "skills-clean/aivd-image-character-b-zh/SKILL.md",
   "origin": "builtin"
  },
  {
   "id": "aivd-image-character-zh",
   "name": "aivd-image-character-zh",
-  "description": "生成中文角色定妆拼图提示词：左侧全身三视图 + 右侧大面部特写，锁定同一张脸与造型。",
+  "description": "生成中文角色定妆拼图提示词：左侧全身三视图 + 右侧大面部特写，按角色人种锁定族裔、肤色、骨相与发质，锁定同一张脸与造型。",
   "file": "skills-clean/aivd-image-character-zh/SKILL.md",
   "origin": "builtin"
  },

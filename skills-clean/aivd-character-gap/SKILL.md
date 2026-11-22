@@ -26,8 +26,9 @@ version: 1.1.0
 - 第一步建候选名单：把素材里的姓名、固定称呼、外号、明确身份去重合并；同一个人只留一个条目，不按集拆开。
 - 第二步比对现有卡：名字相同即视为已存在，哪怕描写不完全一致；读音相近、明显指同一人的称呼也跳过。不要换一个相近的新名字绕过已有卡。
 - 建卡门槛：有姓名或固定称呼，并且有台词、有关键动作、影响主线或被反复提及。纯路人、群演、背景人声、只在选题或大纲里提到却尚未出场的人，不建卡。
-- 新卡字段与角色卡技能同一套，且必须全部写满：`name`、`role`、`description`、`gender`、`age`、`identity`、`trueIdentity`、`appearance`、`personality`、`motivation`、`conflict`、`identityLock`、`arc`、`tags`、`relationships`、`profile`、`voice`、`styleNotes`。
+- 新卡字段与角色卡技能同一套，且必须全部写满：`name`、`role`、`description`、`gender`、`age`、`ethnicity`、`language`、`identity`、`trueIdentity`、`appearance`、`personality`、`motivation`、`conflict`、`identityLock`、`arc`、`tags`、`relationships`、`profile`、`voice`、`styleNotes`。
 - `role` 取「女主」「男主」「反派」「配角」「功能角色」之一；`description` 写身份 + 欲望 + 障碍；`profile` 覆盖外形、身份职业、性格与行为逻辑、欲望与恐惧、关系张力、标志动作或口头禅六块。
+- `ethnicity` 写人种 / 族裔，如「东亚」「北欧白人」「非裔」「南亚」「拉丁裔」「混血（东亚/白人）」，要能直接指导选角与出图；`language` 写台词语种，如「中文」「英语」「日语」「韩语」「粤语」。`appearance` 与 `profile` 的肤色、骨相、发质必须与 `ethnicity` 一致。
 - `identityLock` 写发型发色、体型骨架、辨识色、标志物等不可改特征，至少三项。下游定妆与视频生成必须遵守，补卡时就要一次写准。
 - `styleNotes` 与选题 `visualStyle` 完全一致；`voice` 写性别、年龄段、音区、语速、咬字、气声与情绪表达，不写台词。
 - `relationships` 只连真实存在于已有卡或本轮新卡中的人；没有可写关系时用 `[]`。新卡之间不得重名，必要时加「少年时期」「老年」这类限定语，但同一人不得拆成两张。
@@ -51,6 +52,8 @@ version: 1.1.0
         "description": "表面是便利店夜班店员，实际在找失踪的弟弟；克制、警觉，却被一桩旧案一步步逼到灯下。",
         "gender": "女",
         "age": "二十七八岁",
+        "ethnicity": "东亚",
+        "language": "中文",
         "identity": "便利店夜班店员",
         "trueIdentity": "失踪者的姐姐，私下替警方整理旧案线索",
         "appearance": "黑发低马尾，眼下有淡青，常穿洗旧的深蓝工装。肩窄，站着时习惯把右手插进工装口袋。",
@@ -80,6 +83,7 @@ version: 1.1.0
 - 不得把同一人物按集数、称呼或年龄阶段拆成多张卡。
 - 不得编造与大纲冲突的身份、亲属关系、结局或不在素材中的新人物。
 - `identityLock` 不得少于三项，且必须写明下游定妆与视频生成必须遵守。
+- `ethnicity`、`language` 不得为空；`appearance` 与 `profile` 的族裔特征必须与 `ethnicity` 一致，不得写出冲突的肤色、骨相或发质。
 - `styleNotes` 不得偏离项目画风锁定。
 - 不得输出定妆提示词、出图提示词、版式或图片地址。
 - 任一必填字段为空，整张卡视为不合格；不得用「待补充」「不详」占位。
@@ -91,6 +95,7 @@ version: 1.1.0
 - 是否漏掉剧本里有台词或关键动作却没有卡的人。
 - 同一人物是否被重复建卡，或用了近义新名字绕过已有卡。
 - 全部画像字段是否齐全，`identityLock` 是否具体到可执行。
+- `ethnicity`、`language` 是否非空，`appearance` 与 `profile` 是否写出了与族裔一致的肤色、骨相、发质。
 - `relationships` 是否只指向真实人物，空关系是否用了 `[]`。
 - `styleNotes` 是否与选题画风一致。
 - JSON 块是否可解析，有无尾逗号与注释。

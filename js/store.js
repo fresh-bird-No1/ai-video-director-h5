@@ -273,7 +273,7 @@ export function newCostume() {
 
 export function newAsset(type) {
   const base = { id: uid(type), name: '', description: '', prompt: '', image: '', locked: false };
-  if (type === 'character') return { ...base, role: '', profile: '', voice: '', voiceAudio: '', costumes: [] };
+  if (type === 'character') return { ...base, role: '', profile: '', ethnicity: '', language: '', voice: '', voiceAudio: '', costumes: [] };
   if (type === 'scene') return { ...base, location: '', lighting: '', landmark: '', style: '' };
   if (type === 'prop') return { ...base, usage: '', material: '', size: '', style: '' };
   return { ...base, episode: 1, shot: '', function: '', lighting: '', landmark: '', style: '' };
