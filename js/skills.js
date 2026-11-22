@@ -156,7 +156,8 @@ export const SKILL_SLOTS = {
   scriptWrite: {
     stage: 'script', group: '剧本', label: '写本集', modeDriven: true,
     originalFallback: 'aivd-script', scriptFallback: 'aivd-script-adapt',
-    candidates: ['aivd-script', 'aivd-script-adapt'],
+    candidates: ['aivd-script', 'aivd-script-adapt', 'aivd-vertical-script'],
+    optionLabels: { 'aivd-vertical-script': '竖屏漫剧剧本' },
   },
   scriptRevise: {
     stage: 'script', group: '剧本', label: '按说明改写',
@@ -171,8 +172,8 @@ export const SKILL_SLOTS = {
     stage: 'board', group: '分镜', label: '拆分镜',
     fallback: 'aivd-board', legacyBool: 'boardDetailed',
     legacyBoolTrue: 'aivd-board-h3', legacyBoolFalse: 'aivd-board',
-    candidates: ['aivd-board', 'aivd-board-h3'],
-    optionLabels: { 'aivd-board': '常规拆分', 'aivd-board-h3': '详细拆分' },
+    candidates: ['aivd-board', 'aivd-board-h3', 'aivd-vertical-board'],
+    optionLabels: { 'aivd-board': '常规拆分', 'aivd-board-h3': '详细拆分', 'aivd-vertical-board': '竖屏漫剧分镜' },
   },
   boardAdd: {
     stage: 'board', group: '分镜', label: '加镜',

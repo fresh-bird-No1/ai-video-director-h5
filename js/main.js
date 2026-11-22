@@ -16,7 +16,7 @@ import {
   renderWelcome, renderWorkspace, renderShell, renderStage, renderChat, renderSettings, renderAssetCard,
   renderTopCenter, renderAssetGrid, renderShotCard, renderTransitionCard, renderShotList,
   renderSceneBlock, renderScriptSceneList, renderOutlineCharRows, renderEpisodeRows, esc,
-  skillSlotOptionsHtml, renderChatMessage, renderProposalList,
+  skillSlotOptionsHtml, renderChatMessage, renderProposalList, renderGenStatus,
 } from './render.js';
 import { SKILL_SLOTS } from './skills.js';
 
@@ -1044,6 +1044,43 @@ async function persistProject(project) {
   }
 }
 
+const genIdleTimers = {};
+
+/** 左栏生成状态：只替换状态块，避免为一条状态重绘整页 */
+function patchGenStatus() {
+  const node = document.getElementById('railGen');
+  if (node) node.innerHTML = renderGenStatus(state);
+}
+
+function genBegin(kind) {
+  const g = state.ui.genStatus?.[kind];
+  if (!g) return;
+  g.busy += 1;
+  g.title = '';
+  clearTimeout(genIdleTimers[kind]);
+  patchGenStatus();
+}
+
+function genEnd(kind, ok, message = '') {
+  const g = state.ui.genStatus?.[kind];
+  if (!g) return;
+  g.busy = Math.max(0, g.busy - 1);
+  if (!g.busy) {
+    g.state = ok ? 'ok' : 'error';
+    g.title = ok ? '' : String(message || '');
+    clearTimeout(genIdleTimers[kind]);
+    // 结果只保留几秒，随后回到空闲，避免左栏一直挂着旧提示
+    genIdleTimers[kind] = setTimeout(() => {
+      if (!g.busy) {
+        g.state = 'idle';
+        g.title = '';
+        patchGenStatus();
+      }
+    }, 8000);
+  }
+  patchGenStatus();
+}
+
 /**
  * 把 ComfyUI 的临时输出地址转存到项目目录。
  * 不转存的话，ComfyUI 重启或清理临时目录后，资产图会全部裂掉、音频也会无法播放。
@@ -1556,13 +1593,16 @@ async function onClick(e) {
       if (!costume) return;
       if (!costume.prompt) return toast('先生成这套服装的提示词', 'error');
       toast('正在出图…');
+      genBegin('image');
       try {
         costume.image = await persistMedia(project, await generateImage(costume.prompt));
         touch(project);
         flushDisk();
         if (!patchAssetCard('character', character.id)) patchAssetGrid();
         toast('服装图已写入');
+        genEnd('image', true);
       } catch (err) {
+        genEnd('image', false, err.message);
         toast(err.message, 'error');
       }
       return;
@@ -1772,6 +1812,7 @@ async function onClick(e) {
       if (msg) msg.textContent = '正在运行工作流…';
       state.ui.testResult[kind] = null;
       save();
+      genBegin(kind);
       try {
         const prompt = kind === 'image'
           ? 'cinematic portrait of a young woman, soft rim light, film still, detailed'
@@ -1779,9 +1820,11 @@ async function onClick(e) {
         const url = kind === 'image' ? await generateImage(prompt) : await generateAudio(prompt);
         state.ui.testResult[kind] = { url };
         refreshSettings();
+        genEnd(kind, true);
       } catch (err) {
         state.ui.testResult[kind] = { error: err.message };
         refreshSettings();
+        genEnd(kind, false, err.message);
       }
       return;
     }
@@ -1813,6 +1856,7 @@ async function onClick(e) {
       if (!item) return;
       if (!item.voice) return toast('先填音色说明', 'error');
       toast('正在生成音色试听…');
+      genBegin('audio');
       try {
         // 工作流里的 voice_instruction 是示例文案，必须按角色改写，否则所有人都是同一个声音
         const sample = voiceSample(item);
@@ -1821,7 +1865,9 @@ async function onClick(e) {
         flushDisk();
         if (!patchAssetCard('character', item.id)) patchAssetGrid();
         toast('音色试听已生成');
+        genEnd('audio', true);
       } catch (err) {
+        genEnd('audio', false, err.message);
         toast(err.message, 'error');
       }
       return;
@@ -1833,13 +1879,16 @@ async function onClick(e) {
       const item = list[Number(el.dataset.index)];
       if (!item || !item.prompt) return toast('先生成提示词', 'error');
       toast(`正在出图（提示词 ${String(item.prompt).length} 字）…`);
+      genBegin('image');
       try {
         item.image = await persistMedia(project, await generateImage(item.prompt));
         touch(project);
         flushDisk();
         if (!patchAssetCard(type, item.id)) patchAssetGrid();
         toast('图片已写入');
+        genEnd('image', true);
       } catch (err) {
+        genEnd('image', false, err.message);
         toast(err.message, 'error');
       }
       return;

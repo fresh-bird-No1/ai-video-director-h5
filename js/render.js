@@ -132,6 +132,25 @@ export function renderWelcome(state) {
   </div>`;
 }
 
+const GEN_LABELS = { image: '生图', audio: '音频' };
+
+/** 左栏的生成状态：生图与音频各一行，显示进行中 / 上次结果 */
+export function renderGenStatus(state) {
+  const status = state.ui.genStatus || {};
+  return ['image', 'audio'].map((kind) => {
+    const g = status[kind] || {};
+    const busy = Number(g.busy) > 0;
+    const tone = busy ? 'busy' : (g.state === 'ok' || g.state === 'error' ? g.state : 'idle');
+    const text = busy
+      ? `生成中${Number(g.busy) > 1 ? ` ×${Number(g.busy)}` : ''}…`
+      : g.state === 'ok' ? '已完成' : g.state === 'error' ? '失败' : '空闲';
+    return `<div class="gen-row ${tone}" title="${val(g.title || '')}">
+        <span class="gen-dot"></span><span class="gen-name">${GEN_LABELS[kind]}</span>
+        <span class="gen-text">${esc(text)}</span>
+      </div>`;
+  }).join('');
+}
+
 export function renderShell(state, project, stageHtml, chatHtml) {
   const stageTabs = STAGES.map((s, i) => `
     <button class="rail-item ${state.ui.stage === s.id ? 'active' : ''}" data-action="set-stage" data-stage="${s.id}">
@@ -151,7 +170,9 @@ export function renderShell(state, project, stageHtml, chatHtml) {
     </div>
   </header>
   <div class="layout ${state.ui.chatOpen ? '' : 'chat-closed'}">
-    <aside class="rail">${stageTabs}<div class="rail-foot">
+    <aside class="rail">${stageTabs}
+      <div class="rail-gen" id="railGen">${renderGenStatus(state)}</div>
+      <div class="rail-foot">
       <button class="btn btn-ghost btn-block" data-action="new-project">新建项目</button>
       <button class="btn btn-ghost btn-block danger" data-action="delete-project">删除当前项目</button>
     </div></aside>
@@ -280,24 +301,34 @@ const ASSET_PROMPT_GROUP = {
   standing: 'standingPrompt',
 };
 
-/** 资产页顶部的默认技能入口：随当前 tab 切换，多技能组才显示。 */
-function assetSkillPicker(state) {
-  const slotKey = ASSET_PROMPT_GROUP[state.ui.assetTab];
-  if (!slotKey) return '';
+/** 阶段页的默认技能入口：切换后下次点动作按钮生效。 */
+function skillPicker(state, slotKey, hint) {
   const def = SKILL_SLOTS[slotKey];
   const options = slotCandidates(slotKey);
   if (!def || options.length <= 1) return '';
   const current = defaultSkillFor(slotKey, state.settings);
   const info = slotSkillInfo(slotKey, state.settings);
+  // modeDriven 槽位保留「跟随项目模式」，与设置页一致
+  const values = def.modeDriven ? ['', ...options] : options;
+  const labelFor = (id) => (id ? skillShortLabel(id, slotKey) : '跟随项目模式');
+  const descFor = (id) => (id ? (skillMeta(id)?.description || '') : MODE_DRIVEN_DESC);
+  const tip = hint || `默认技能，下次点「${def.label}」生效`;
   return `<div class="toolbar asset-skill-bar">
       <label class="inline-field">${esc(def.label)}
-        <select data-settings-path="skillDefaults.${slotKey}" title="点「生成提示词」时使用的技能">
-          ${options.map((id) => `<option value="${val(id)}" title="${esc(skillMeta(id)?.description || '')}" ${id === current ? 'selected' : ''}>${esc(skillShortLabel(id, slotKey))}</option>`).join('')}
+        <select data-settings-path="skillDefaults.${slotKey}" title="${val(tip)}">
+          ${values.map((id) => `<option value="${val(id)}" title="${esc(descFor(id))}" ${id === current ? 'selected' : ''}>${esc(labelFor(id))}</option>`).join('')}
         </select>
       </label>
-      <span class="muted small">默认技能，下次点「生成提示词」生效</span>
+      <span class="muted small">${esc(tip)}</span>
     </div>
     <div class="muted small skill-desc">技能说明：<span data-skill-desc="skillDefaults.${slotKey}">${esc(info.description)}</span></div>`;
+}
+
+/** 资产页顶部的默认技能入口：随当前 tab 切换，多技能组才显示。 */
+function assetSkillPicker(state) {
+  const slotKey = ASSET_PROMPT_GROUP[state.ui.assetTab];
+  if (!slotKey) return '';
+  return skillPicker(state, slotKey, '默认技能，下次点「生成提示词」生效');
 }
 
 function audioPlayer(src) {
@@ -519,6 +550,7 @@ function renderScript(state, project) {
       <span class="muted small">${esc(epTitle)}</span>
       <button class="btn btn-ghost" data-action="add-scene">加一场</button>
     </div>
+    ${skillPicker(state, 'scriptWrite')}
     <div class="field"><span>改写要求（点「按说明改写」时使用）</span>
       <textarea id="reviseInput" rows="2" placeholder="例如：把第 2 场对白改短，情绪更克制"></textarea>
     </div>
@@ -615,7 +647,6 @@ export function renderShotList(state, project) {
 function renderBoard(state, project) {
   const ep = Number(state.ui.episode) || 1;
   const epOptions = Array.from({ length: episodeCount(project) }, (_, i) => i + 1);
-  const boardSkill = slotSkillInfo('boardSplit', state.settings);
 
   return `${stageHead('分镜表', '按转场把已确认剧本拆成镜头，写清时长、景别、运镜与时间轴。', `
       <button class="btn" data-action="run" data-run="boardSplit">拆分镜</button>
@@ -624,9 +655,9 @@ function renderBoard(state, project) {
       <label class="inline-field">集数
         <select data-path="ui.episode">${epOptions.map((n) => `<option value="${n}" ${n === ep ? 'selected' : ''}>第 ${n} 集</option>`).join('')}</select>
       </label>
-      <span class="muted small">拆分镜技能：${esc(boardSkill.name)} · ${esc(boardSkill.description)}（在「设置 → 技能管理」中切换）</span>
       <button class="btn btn-ghost" data-action="add-shot">添加空镜</button>
     </div>
+    ${skillPicker(state, 'boardSplit')}
     <div class="shot-list">${renderShotList(state, project)}</div>
     <p class="muted small">转场默认全部开启；导出导演包时每对相邻镜头会生成一个 fl2v 转场任务，首帧取上一镜尾帧、尾帧取下一镜首帧。</p>`;
 }

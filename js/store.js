@@ -66,6 +66,11 @@ export const state = {
     screen: '',
     welcome: false,
     chat: { messages: [], skillId: '', busy: false, proposals: [] },
+    // 左栏的生图 / 音频生成状态：busy 为并发任务数，state 为最近一次结果
+    genStatus: {
+      image: { busy: 0, state: 'idle', title: '' },
+      audio: { busy: 0, state: 'idle', title: '' },
+    },
   },
 };
 
