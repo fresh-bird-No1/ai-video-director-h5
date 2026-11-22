@@ -33,6 +33,14 @@
 
 ![资产设计页](docs/images/assets-stage.png)
 
+**分镜表**：按集拆分镜头，写清时长、景别、运镜、时间轴与转场；顶部下拉可直接切换拆分镜技能，常规与竖屏漫剧分镜随时互换。
+
+![分镜表页](docs/images/board-stage.png)
+
+**技能管理**：设置里集中管理各阶段默认技能，可跟随项目模式、指定内置技能，或导入自己的 `SKILL.md` 作为自定义技能。
+
+![技能管理页](docs/images/skills-settings.png)
+
 ## 快速开始
 
 环境要求：Python 3.8+、现代浏览器。AI 生成需要任意 OpenAI 兼容的 LLM API Key；生图和配音可选接本地 ComfyUI。
