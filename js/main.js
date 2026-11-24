@@ -27,6 +27,11 @@ let pendingAction = '';
 let pendingAsset = null;
 let pendingCostume = null;
 
+/** 聊天面板最多保留的消息条数：旧记录不再发给模型，留着只会拖慢面板渲染 */
+const MAX_CHAT_MESSAGES = 60;
+/** 自由对话带给模型的历史条数上限，避免上下文无限增长 */
+const MAX_HISTORY_MESSAGES = 12;
+
 const RUN_STAGE = {
   topic: 'topic', outline: 'outline', outlineCheck: 'outline',
   characterProfile: 'assets', characterGap: 'assets', characterPrompt: 'assets', costumePrompt: 'assets',
@@ -172,6 +177,26 @@ function renderChatOnly() {
   if (!box || !p) return;
   box.innerHTML = renderChat(state, p);
   scrollChat();
+}
+
+/** 清空聊天上下文：换阶段、换项目时调用，顺手停掉还在跑的旧请求 */
+function resetChat(project, keepSkill = false) {
+  if (aborter) aborter.abort();
+  aborter = null;
+  chatRunId += 1; // 旧请求的回包直接作废，不能写进新的对话
+  const skillId = keepSkill ? state.ui.chat.skillId : defaultSkillForStage(project);
+  state.ui.chat = { messages: [], skillId, busy: false, proposals: [] };
+  renderChatOnly();
+}
+
+/** 动作消息只把任务行留在面板里；完整项目快照照常发给模型，避免聊天区被 JSON 撑大 */
+function chatDisplayText(action, text) {
+  if (!action) return text;
+  const task = text.split('\n\n').find((p) => p.startsWith('任务：')) || '按技能要求执行。';
+  if (action !== 'scriptRevise') return task;
+  // 改写要求写在项目数据里，面板上单独提出来，避免用户看不到自己填的内容
+  const revise = document.getElementById('reviseInput')?.value || '';
+  return revise ? `${task}\n改写要求：${revise}` : task;
 }
 
 /** 追加一轮对话，不重建已有聊天记录（长对话下重排整段会很卡） */
@@ -612,6 +637,8 @@ async function runSkill(action, index) {
   if (!project) return;
   const stage = RUN_STAGE[action] || state.ui.stage;
   const stageChanged = stage !== state.ui.stage;
+  // 上一次对话所属的阶段：只切 tab 不清记录，真正生成另一条流程时才清
+  const prevChatStage = state.ui.chat.stage || '';
   state.ui.stage = stage;
   state.ui.chatOpen = true;
   pendingAction = action;
@@ -627,6 +654,10 @@ async function runSkill(action, index) {
   // 否则分镜、资产这类长页面会在点「生成提示词」「改这镜」时跳回顶部。
   syncStageChrome();
   if (stageChanged) renderMainOnly(true);
+  if (stageChanged || (prevChatStage && prevChatStage !== stage)) {
+    // 换流程启动生成时才清空旧对话；单纯切 tab 保留记录，方便回看
+    resetChat(project, true);
+  }
   const message = buildUserMessage(action, project, index);
   await sendChat(message, { action, index, stage });
 }
@@ -647,30 +678,32 @@ async function sendChat(text, meta = {}) {
   }
   // 上一个动作还在流式输出时，新动作直接接管：先停旧请求，避免点击被吞掉
   if (chat.busy && aborter) aborter.abort();
+  // 只记录动作类生成所属的阶段；自由对话不改变它，避免切 tab 闲聊后误判流程
+  if (meta.action) chat.stage = stage;
   const runId = ++chatRunId;
-  // 动作按钮切换了技能时，只发当前任务：否则「换角度」的上一轮对话会把紧接着的
-  // 「生成提示词」带偏；同一技能下的动作和自由对话保留上下文，方便继续追加要求。
-  const prevSkillId = [...chat.messages].reverse().find((m) => m.role === 'user')?.skillId || '';
-  const userMsg = { id: uid('m'), role: 'user', content: text, skillId };
+  // 动作按钮每次只发当前任务：上一轮的输出会让模型照抄旧结构，也让新切换的技能失效；
+  // 自由对话沿用同一技能的历史，但只带最近若干条，避免上下文和面板一起膨胀。
+  const userMsg = { id: uid('m'), role: 'user', content: chatDisplayText(meta.action, text), skillId };
   const last = { id: uid('m'), role: 'assistant', content: '', reasoning: '', pending: true, skillId };
   chat.messages.push(userMsg, last);
+  const trimmed = chat.messages.length > MAX_CHAT_MESSAGES;
+  if (trimmed) chat.messages.splice(0, chat.messages.length - MAX_CHAT_MESSAGES);
   chat.busy = true;
   chat.proposals = [];
   pendingAction = '';
   document.querySelector('.proposal-list')?.remove();
-  if (appendChatMessages([userMsg, last])) {
+  if (!trimmed && appendChatMessages([userMsg, last])) {
     syncComposerButton(chat);
     scrollChat();
   } else {
     renderChatOnly();
   }
-  // 技能没变就沿用同一技能的上下文；技能切换后只发当前任务
-  const keepHistory = !meta.action || prevSkillId === skillId;
-  const history = keepHistory
-    ? chat.messages
+  const history = meta.action
+    ? [{ role: 'user', content: text }]
+    : chat.messages
       .filter((m) => !m.pending && m.role !== 'system' && m.skillId === skillId)
-      .map((m) => ({ role: m.role, content: m.content }))
-    : [{ role: 'user', content: text }];
+      .slice(-MAX_HISTORY_MESSAGES)
+      .map((m) => ({ role: m.role, content: m.content }));
   aborter = new AbortController();
   const signal = aborter.signal;
   // 流式增量很多，合并成约 200ms 一次刷新，且只更新当前这一条消息
@@ -1032,9 +1065,13 @@ async function refreshProjectIndex() {
   }
 }
 
+/** 已删除的项目 ID：防止延迟写盘把刚删掉的项目又 PUT 回磁盘 */
+const deletedProjectIds = new Set();
+
 /** 把当前项目写回磁盘，返回是否成功 */
 async function persistProject(project) {
   if (!state.ui.serverOnline || !project) return false;
+  if (deletedProjectIds.has(project.id)) return false;
   try {
     await putProject(project);
     return true;
@@ -1146,7 +1183,7 @@ let diskTimer = null;
 /** 失焦后延迟写盘，避免每敲一次都发请求 */
 function flushDisk() {
   const p = currentProject();
-  if (!state.ui.serverOnline || !p) return;
+  if (!state.ui.serverOnline || !p || deletedProjectIds.has(p.id)) return;
   clearTimeout(diskTimer);
   diskTimer = setTimeout(() => persistProject(p), 150);
 }
@@ -1154,7 +1191,7 @@ function flushDisk() {
 /** 页面关闭/切后台时立即写盘 */
 function flushDiskNow() {
   const p = currentProject();
-  if (!state.ui.serverOnline || !p) return;
+  if (!state.ui.serverOnline || !p || deletedProjectIds.has(p.id)) return;
   clearTimeout(diskTimer);
   try {
     fetch('/api/projects/' + encodeURIComponent(p.id), {
@@ -1515,10 +1552,15 @@ async function onClick(e) {
     case 'delete-project': {
       if (!project) return;
       if (!confirm(`删除项目「${project.name}」？磁盘上的 project.json 会一并删除，不可恢复。`)) return;
+      // 先拦住延迟写盘：刚失焦触发的 150ms 写盘会在删除后把项目重新 PUT 回磁盘
+      deletedProjectIds.add(project.id);
+      clearTimeout(diskTimer);
+      diskTimer = null;
       if (state.ui.serverOnline) {
         try {
           await deleteProjectOnDisk(project.id);
         } catch (err) {
+          deletedProjectIds.delete(project.id);
           toast('删除失败：' + err.message, 'error');
           return;
         }
@@ -1530,6 +1572,7 @@ async function onClick(e) {
       return;
     }
     case 'set-stage': {
+      // 切 tab 只换高亮和内容，聊天记录保留；真正生成另一条流程时再清空
       state.ui.stage = el.dataset.stage;
       state.ui.chat.skillId = defaultSkillForStage(project);
       state.ui.chat.proposals = [];
@@ -1905,8 +1948,7 @@ async function onClick(e) {
       if (aborter) aborter.abort();
       return;
     case 'clear-chat':
-      state.ui.chat = { messages: [], skillId: defaultSkillForStage(project), busy: false, proposals: [] };
-      renderChatOnly();
+      resetChat(project);
       return;
     case 'apply-proposal': {
       const p = state.ui.chat.proposals[index];
